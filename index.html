@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Steel Tongue Drum</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23434d57'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23E5484D'/%3E%3Ccircle cx='32' cy='12' r='6' fill='%23E5484D'/%3E%3Ccircle cx='50' cy='22' r='6' fill='%23F29544'/%3E%3Ccircle cx='50' cy='42' r='6' fill='%23F2D45C'/%3E%3Ccircle cx='32' cy='52' r='6' fill='%235CBF6A'/%3E%3Ccircle cx='14' cy='42' r='6' fill='%2355BFD6'/%3E%3Ccircle cx='14' cy='22' r='6' fill='%235B63D6'/%3E%3C/svg%3E">
+<style>
+html,body{margin:0;height:100%;overflow:hidden;color:#f3e6d0;font-family:Georgia,"Times New Roman",serif;user-select:none;-webkit-user-select:none}
+body{display:flex;flex-direction:column;align-items:center;background:radial-gradient(ellipse at 50% 40%,#4b3544 0%,#2e2232 55%,#1c1723 100%)}
+h1{margin:16px 0 0;font-size:14px;font-weight:400;letter-spacing:.45em;text-transform:uppercase;opacity:.5;position:relative;z-index:1}
+#stage{flex:1;min-height:0;width:100%;position:relative;z-index:1}
+svg#drum{width:100%;height:100%;display:block}
+[data-deg]{cursor:pointer}
+.tg,#medal{transform-box:fill-box;transform-origin:center}
+.tg:hover,#medal:hover{filter:brightness(1.1)}
+#foot{height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;position:relative;z-index:1}
+#cap{margin:0;font-size:17px;min-height:22px;opacity:0;transition:opacity .6s;text-align:center;padding:0 20px}
+#cap.on{opacity:.88}
+#go{font:inherit;font-size:16px;letter-spacing:.25em;text-transform:uppercase;padding:10px 36px;border-radius:30px;border:1.5px solid rgba(243,230,208,.55);background:rgba(243,230,208,.08);color:#f3e6d0;cursor:pointer;transition:background .25s,opacity .5s}
+#go:hover{background:rgba(243,230,208,.2)}
+#go.off{opacity:0;pointer-events:none}
+#ver{position:fixed;right:14px;bottom:10px;font-size:11px;opacity:.35;z-index:2}
+#ff{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#ff i{position:absolute;border-radius:50%;background:#ffd89a;opacity:0;filter:blur(1px);animation:fl 14s ease-in-out infinite}
+@keyframes fl{0%{opacity:0;transform:translate(0,0)}20%{opacity:.7}50%{opacity:.3;transform:translate(26px,-42px)}80%{opacity:.7}100%{opacity:0;transform:translate(-12px,-84px)}}
+</style>
+</head>
+<body>
+<div id="ff"></div>
+<h1>Steel Tongue Drum</h1>
+<div id="stage"><svg id="drum" viewBox="0 0 760 700" preserveAspectRatio="xMidYMid meet"></svg></div>
+<div id="foot"><p id="cap"></p><button id="go">Iniciar</button></div>
+<div id="ver">v3.2</div>
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i);};
+var NS="http://www.w3.org/2000/svg";
+
+/* ---------- método: graus, cores, caráter (tabela de referência) ---------- */
+var NAMES=["DO","RE","MI","FA","SOL","LA","SI"];
+var FUNC=["a tônica","a segunda","a mediana","a subdominante","a dominante","a submediante","a sensível"];
+var CHAR=["forte, estável","estimulante","calma","desolada, puxa para baixo","grandiosa, brilhante","triste, melancólica","penetrante, puxa para o DO"];
+var SEMI=[0,2,4,5,7,9,11];
+var COL=["#E5484D","#F29544","#F2D45C","#5CBF6A","#55BFD6","#5B63D6","#C25BC9"];
+var INK=["#ffffff","#2b2230","#2b2230","#1d3324","#143a44","#ffffff","#ffffff"];
+var F0=261.626; /* DO4 */
+
+/* ---------- geometria ---------- */
+var CX=380,CY=350,R=215,W=118,L=150,DISC=84;
+function mix(h,w,a){var o="#";for(var i=0;i<3;i++){var p=parseInt(h.substr(1+i*2,2),16),q=parseInt(w.substr(1+i*2,2),16),v=Math.round(p*(1-a)+q*a);o+=("0"+v.toString(16)).slice(-2);}return o;}
+function el(tag,attrs,parent){var e=document.createElementNS(NS,tag);for(var k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+/* língua de aço: ponta externa bem redonda, base mais fechada (eixo longo = y local, ponta externa em y negativo) */
+function tonguePath(ox,oy){ox=ox||0;oy=oy||0;var w=W/2,l=L/2,r1=52,r2=24;
+return "M"+(ox-w)+","+(oy-l+r1)+" A"+r1+","+r1+" 0 0 1 "+(ox-w+r1)+","+(oy-l)+" H"+(ox+w-r1)+" A"+r1+","+r1+" 0 0 1 "+(ox+w)+","+(oy-l+r1)+" V"+(oy+l-r2)+" A"+r2+","+r2+" 0 0 1 "+(ox+w-r2)+","+(oy+l)+" H"+(ox-w+r2)+" A"+r2+","+r2+" 0 0 1 "+(ox-w)+","+(oy+l-r2)+" Z";}
+var TP=tonguePath();
+
+var svg=$("drum"),defs=el("defs",{},svg);
+function stop(g,o,c,op){el("stop",{offset:o,"stop-color":c,"stop-opacity":op===undefined?1:op},g);}
+var gb=el("radialGradient",{id:"gb",cx:"50%",cy:"36%",r:"72%"},defs);stop(gb,0,"#6d7883");stop(gb,.55,"#434d57");stop(gb,1,"#262d34");
+var gw=el("radialGradient",{id:"gw"},defs);stop(gw,0,"#ffbe78",.3);stop(gw,1,"#ffbe78",0);
+var gs=el("radialGradient",{id:"gs"},defs);stop(gs,0,"#000",.45);stop(gs,1,"#000",0);
+for(var i=0;i<7;i++){var g=el("linearGradient",{id:"gt"+i,x1:0,y1:0,x2:0,y2:1},defs);stop(g,0,mix(COL[i],"#ffffff",.3));stop(g,.55,COL[i]);stop(g,1,mix(COL[i],"#000000",.14));}
+var gm=el("linearGradient",{id:"gm",gradientUnits:"userSpaceOnUse",x1:CX,y1:CY-300,x2:CX,y2:CY+90},defs);stop(gm,0,mix(COL[0],"#ffffff",.14));stop(gm,.5,COL[0]);stop(gm,1,mix(COL[0],"#000000",.1));
+
+/* corpo do tambor */
+el("circle",{cx:CX,cy:CY,r:430,fill:"url(#gw)"},svg);
+el("ellipse",{cx:CX,cy:CY+26,rx:350,ry:340,fill:"url(#gs)"},svg);
+el("circle",{cx:CX,cy:CY,r:340,fill:"url(#gb)"},svg);
+el("circle",{cx:CX,cy:CY,r:338,fill:"none",stroke:"rgba(255,255,255,.22)","stroke-width":3},svg);
+el("circle",{cx:CX,cy:CY,r:322,fill:"none",stroke:"rgba(0,0,0,.28)","stroke-width":2},svg);
+
+var DARK="#1b232a",pos=[],parts=[];
+function tongue(deg,cx,cy,rot){
+ var og=el("g",{transform:"translate("+cx+","+cy+") rotate("+rot+")","data-deg":deg,"data-px":cx,"data-py":cy},svg);
+ var tg=el("g",{"class":"tg"},og);
+ el("path",{d:TP,fill:DARK,stroke:DARK,"stroke-width":14,"stroke-linejoin":"round"},tg);
+ el("path",{d:TP,fill:"url(#gt"+deg+")",stroke:"rgba(255,255,255,.2)","stroke-width":2},tg);
+ el("path",{d:"M-34,-60 Q0,-76 34,-60",fill:"none",stroke:"rgba(255,255,255,.35)","stroke-width":4,"stroke-linecap":"round"},tg);
+ return tg;}
+/* ferradura: Re..Si, em sentido horário a partir do topo */
+for(var d=1;d<7;d++){var th=-90+d*360/7,rad=th*Math.PI/180,px=CX+R*Math.cos(rad),py=CY+R*Math.sin(rad);
+ pos[d]=[px,py];parts[d]=tongue(d,px.toFixed(2),py.toFixed(2),(th+90).toFixed(2));}
+
+/* medalha: disco central + pescoço + lâmina do DO no topo, uma peça só */
+var medal=el("g",{id:"medal","data-deg":0},svg),TY=CY-R;
+function medalShapes(fill,stroke,sw,parent){
+ el("circle",{cx:CX,cy:CY,r:DISC,fill:fill,stroke:stroke,"stroke-width":sw,"stroke-linejoin":"round","data-px":CX,"data-py":CY},parent);
+ el("rect",{x:CX-32,y:TY+40,width:64,height:CY-TY-40,fill:fill,stroke:stroke,"stroke-width":sw,"stroke-linejoin":"round","data-px":CX,"data-py":TY+60},parent);
+ el("path",{d:tonguePath(CX,TY),fill:fill,stroke:stroke,"stroke-width":sw,"stroke-linejoin":"round","data-px":CX,"data-py":TY},parent);}
+medalShapes(DARK,DARK,14,medal);
+medalShapes("url(#gm)","none",0,medal);
+el("path",{d:"M-34,-60 Q0,-76 34,-60",transform:"translate("+CX+","+TY+")",fill:"none",stroke:"rgba(255,255,255,.35)","stroke-width":4,"stroke-linecap":"round","pointer-events":"none"},medal);
+el("circle",{cx:CX,cy:CY,r:DISC-12,fill:"none",stroke:"rgba(255,255,255,.18)","stroke-width":3,"pointer-events":"none"},medal);
+pos[0]=[CX,CY];parts[0]=medal;
+
+/* nomes gravados */
+function label(txt,x,y,size,deg){var t=el("text",{x:x,y:y,"text-anchor":"middle","dominant-baseline":"central",fill:INK[deg],"fill-opacity":.82,style:"font:700 "+size+"px Georgia,serif;letter-spacing:.06em;pointer-events:none"},svg);t.textContent=txt;}
+for(var d2=1;d2<7;d2++)label(NAMES[d2],pos[d2][0],pos[d2][1],24,d2);
+label("DO",CX,CY,32,0);label("DO",CX,TY,24,0);
+var fxl=el("g",{"pointer-events":"none"},svg);
+
+/* ---------- áudio ---------- */
+var ctx=null,master,noiseBuf;
+function initAudio(){if(ctx){if(ctx.state==="suspended")ctx.resume();return;}
+ var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;ctx=new AC();
+ master=ctx.createGain();master.gain.value=.75;
+ var comp=ctx.createDynamicsCompressor();comp.connect(ctx.destination);
+ var conv=ctx.createConvolver(),sr=ctx.sampleRate,len=Math.floor(sr*2.4),ib=ctx.createBuffer(2,len,sr);
+ for(var c=0;c<2;c++){var data=ib.getChannelData(c);for(var i=0;i<len;i++)data[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.8);}
+ conv.buffer=ib;var wet=ctx.createGain();wet.gain.value=.34;
+ master.connect(comp);master.connect(conv);conv.connect(wet);wet.connect(comp);
+ noiseBuf=ctx.createBuffer(1,Math.floor(sr*.08),sr);var nd=noiseBuf.getChannelData(0);for(var j=0;j<nd.length;j++)nd[j]=Math.random()*2-1;}
+function strike(deg,vel){if(!ctx)return;vel=vel||.9;var t=ctx.currentTime,f=F0*Math.pow(2,SEMI[deg]/12);
+ [[1,1,2.8],[2,.3,1.4],[3.02,.1,.7],[4.16,.045,.4],[1.004,.3,2.2]].forEach(function(p){
+  var o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=f*p[0];
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.34*p[1]*vel,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+p[2]);
+  o.connect(g);g.connect(master);o.start(t);o.stop(t+p[2]+.05);});
+ var nb=ctx.createBufferSource();nb.buffer=noiseBuf;var bp=ctx.createBiquadFilter();bp.type="bandpass";bp.frequency.value=1800+deg*120;bp.Q.value=1.2;
+ var ng=ctx.createGain();ng.gain.setValueAtTime(.09*vel,t);ng.gain.exponentialRampToValueAtTime(.0001,t+.045);
+ nb.connect(bp);bp.connect(ng);ng.connect(master);nb.start(t);nb.stop(t+.06);}
+
+/* ---------- efeitos visuais ---------- */
+function anim(e,kf,o){if(e&&e.animate)e.animate(kf,o);}
+function press(deg){anim(parts[deg],[{transform:"scale(1)"},{transform:"scale(.95)"},{transform:"scale(1)"}],{duration:200,easing:"ease-out"});}
+function ripple(x,y,col){var c=el("circle",{cx:x,cy:y,r:20,fill:"none",stroke:col,"stroke-width":3},fxl);
+ anim(c,[{transform:"scale(1)",opacity:.8},{transform:"scale(4.2)",opacity:0}],{duration:900,easing:"ease-out"});
+ c.style.transformBox="fill-box";c.style.transformOrigin="center";setTimeout(function(){if(c.parentNode)c.parentNode.removeChild(c);},950);}
+function glow(deg,ms,peak){anim(parts[deg],[{filter:"brightness(1)"},{filter:"brightness("+(peak||1.45)+") drop-shadow(0 0 16px rgba(255,235,190,.95))",offset:.25},{filter:"brightness(1)"}],{duration:ms||900,easing:"ease-out"});}
+function wobble(deg){anim(parts[deg],[{transform:"translateX(0)"},{transform:"translateX(-5px)"},{transform:"translateX(5px)"},{transform:"translateX(-3px)"},{transform:"translateX(0)"}],{duration:340});}
+function sparkles(x,y,col){for(var i=0;i<14;i++)(function(){
+ var c=el("circle",{cx:x,cy:y,r:2+Math.random()*3,fill:i%3?col:"#fff4d6"},fxl),a=Math.random()*Math.PI*2,dist=50+Math.random()*80;
+ c.style.transformBox="fill-box";c.style.transformOrigin="center";
+ anim(c,[{transform:"translate(0,0)",opacity:1},{transform:"translate("+(Math.cos(a)*dist)+"px,"+(Math.sin(a)*dist-40)+"px)",opacity:0}],{duration:1100+Math.random()*500,easing:"ease-out"});
+ setTimeout(function(){if(c.parentNode)c.parentNode.removeChild(c);},1700);})();}
+
+/* ---------- legenda ---------- */
+var capT=null;
+function cap(txt){var c=$("cap");c.classList.remove("on");clearTimeout(capT);capT=setTimeout(function(){c.textContent=txt;c.classList.add("on");},120);}
+
+/* ---------- jogo: ouvir o tom e tocar a lâmina ---------- */
+var state="free",target=-1,last=-1,tries=0,round=0,repeatId=null;
+function later(fn,ms){var r=round;setTimeout(function(){if(r===round)fn();},ms);}
+function armRepeat(ms){clearTimeout(repeatId);repeatId=setTimeout(function(){if(state==="asking")prompt(true);},ms);}
+function pickTarget(){var d;do{d=Math.floor(Math.random()*7);}while(d===last);last=d;return d;}
+function prompt(withTonic){var gap=0;
+ if(withTonic){strike(0,.7);glow(0,1100,1.25);gap=1100;}
+ setTimeout(function(){if(state==="asking")strike(target,.95);},gap);
+ armRepeat(9000+gap);}
+function nextRound(){round++;target=pickTarget();tries=0;state="asking";cap("Ouça o tom e toque a lâmina que você acha que é.");setTimeout(function(){if(state==="asking")prompt(true);},700);}
+
+function guess(deg,x,y){
+ initAudio();strike(deg,.9);press(deg);ripple(x,y,COL[deg]);
+ if(state!=="asking")return;
+ armRepeat(9000);
+ if(deg===target){state="done";clearTimeout(repeatId);glow(deg,1500,1.6);sparkles(x,y,COL[deg]);
+  cap("Isso! "+NAMES[deg]+", "+FUNC[deg]+": "+CHAR[deg]+".");later(nextRound,2800);}
+ else{tries++;wobble(deg);cap("Quase... escute de novo.");
+  later(function(){if(state==="asking")strike(target,.9);},1400);
+  if(tries>=3)later(function(){if(state==="asking")glow(target,1800,1.3);},1900);}}
+
+svg.addEventListener("pointerdown",function(e){
+ var g=e.target.closest?e.target.closest("[data-deg]"):null;if(!g)return;e.preventDefault();
+ var deg=parseInt(g.getAttribute("data-deg"),10),src=e.target.getAttribute("data-px")?e.target:g;
+ var gx=parseFloat(src.getAttribute("data-px")),gy=parseFloat(src.getAttribute("data-py"));if(isNaN(gx)||isNaN(gy)){gx=pos[deg][0];gy=pos[deg][1];}
+ guess(deg,gx,gy);});
+
+$("go").addEventListener("click",function(){initAudio();$("go").classList.add("off");nextRound();});
+cap("Toque as lâminas à vontade. Quando quiser, aperte Iniciar.");
+
+/* vagalumes */
+var ff=$("ff");for(var k=0;k<14;k++){var f=document.createElement("i"),s=2+Math.random()*3;
+ f.style.cssText="left:"+(Math.random()*100)+"%;top:"+(10+Math.random()*80)+"%;width:"+s+"px;height:"+s+"px;animation-delay:-"+(Math.random()*14)+"s;animation-duration:"+(10+Math.random()*8)+"s";ff.appendChild(f);}
+})();
+</script>
+</body>
+</html>
